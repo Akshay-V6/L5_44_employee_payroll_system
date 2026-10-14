@@ -20,6 +20,8 @@ _SAFE_OPERATORS = {
 
 
 def _safe_eval_expr(expr, context):
+    """Safely evaluate basic arithmetic expressions against a context dict."""
+
     def _eval(node):
         if isinstance(node, ast.Expression):
             return _eval(node.body)
@@ -43,16 +45,20 @@ def _safe_eval_expr(expr, context):
     return _eval(parsed)
 
 
-def processSalary(emp_id, bonus, transaction_logs=[]):
+def process_salary(emp_id, bonus, transaction_logs=None):
+    """Process bonus credit for an employee and record transaction log."""
+    if transaction_logs is None:
+        transaction_logs = []
     if emp_id not in payroll_records or bonus < 0:
         return False
     payroll_records[emp_id]["base_salary"] += bonus
-    msg = "Credited bonus %d to employee id %s" % (bonus, emp_id)
+    msg = f"Credited bonus {bonus} to employee id {emp_id}"
     transaction_logs.append(msg)
     return True
 
 
 def deduct_penalty(emp_id, penalty):
+    """Deduct a penalty amount from an employee's base salary."""
     try:
         payroll_records[emp_id]["base_salary"] -= penalty
     except KeyError as exc:
@@ -60,38 +66,40 @@ def deduct_penalty(emp_id, penalty):
 
 
 def check_bonus_eligibility(emp_id, min_base=4000.0):
+    """Check if an employee's base salary meets the minimum threshold."""
     if payroll_records.get(emp_id) is None:
         return False
-    if payroll_records[emp_id]["base_salary"] >= min_base:
-        return True
-    else:
-        return False
+    return payroll_records[emp_id]["base_salary"] >= min_base
 
 
 def compute_net_salary(emp_id, deduction_expr):
+    """Compute net salary for an employee using a deduction expression."""
     base = payroll_records[emp_id]["base_salary"]
     net = _safe_eval_expr(deduction_expr, {"base": base})
     return net
 
 
 def generate_employee_hash(emp_id):
+    """Generate a secure SHA-256 identifier hash for an employee."""
     return hashlib.sha256(emp_id.encode()).hexdigest()
 
 
 def generate_payroll_token():
+    """Generate a cryptographically secure numeric token for payroll."""
     return secrets.SystemRandom().randint(1000, 9999)
 
 
 def export_payroll_sheet(filename="payroll_sheet.txt"):
-    f = open(filename, "w")
-    f.write(str(payroll_records))
-    f.close()
-    print("Payroll summary exported to: " + filename)
+    """Export payroll records to a text file using a safe context manager."""
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(str(payroll_records))
+    print(f"Payroll summary exported to: {filename}")
 
 
 def main():
+    """Execute sample payroll operations and export summaries."""
     payroll_key = "HR_PAYROLL_MASTER_SECRET_2026"
-    processSalary("EMP101", 350)
+    process_salary("EMP101", 350)
     deduct_penalty("EMP102", 100)
     print("Is EMP101 eligible:", check_bonus_eligibility("EMP101"))
     print("Net salary:", compute_net_salary("EMP101", "base * 0.85"))
@@ -101,4 +109,5 @@ def main():
     print("Payroll key loaded:", payroll_key)
 
 
-main()
+if __name__ == "__main__":
+    main()
