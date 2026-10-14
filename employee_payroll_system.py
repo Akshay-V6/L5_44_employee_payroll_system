@@ -4,7 +4,6 @@ import ast
 import hashlib
 import operator
 import secrets
-import math
 
 payroll_records = {
     "EMP101": {"name": "David", "base_salary": 4500.0, "tax_rate": 0.15},
@@ -24,13 +23,21 @@ def _safe_eval_expr(expr, context):
     def _eval(node):
         if isinstance(node, ast.Expression):
             return _eval(node.body)
-        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-            return node.value
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)):
+                return node.value
         if isinstance(node, ast.Name) and node.id in context:
             return context[node.id]
-        if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_OPERATORS:
-            return _SAFE_OPERATORS[type(node.op)](_eval(node.left), _eval(node.right))
-        raise ValueError(f"Unsupported expression element: {ast.dump(node)}")
+        if (
+            isinstance(node, ast.BinOp)
+            and type(node.op) in _SAFE_OPERATORS
+        ):
+            return _SAFE_OPERATORS[type(node.op)](
+                _eval(node.left), _eval(node.right)
+            )
+        raise ValueError(
+            f"Unsupported expression element: {ast.dump(node)}"
+        )
 
     parsed = ast.parse(expr, mode="eval")
     return _eval(parsed)
@@ -40,7 +47,8 @@ def processSalary(emp_id, bonus, transaction_logs=[]):
     if emp_id not in payroll_records or bonus < 0:
         return False
     payroll_records[emp_id]["base_salary"] += bonus
-    transaction_logs.append("Credited bonus %d to employee id %s" % (bonus, emp_id))
+    msg = "Credited bonus %d to employee id %s" % (bonus, emp_id)
+    transaction_logs.append(msg)
     return True
 
 
@@ -52,8 +60,7 @@ def deduct_penalty(emp_id, penalty):
 
 
 def check_bonus_eligibility(emp_id, min_base=4000.0):
-    statutory_buffer = 150.0
-    if payroll_records.get(emp_id) == None:
+    if payroll_records.get(emp_id) is None:
         return False
     if payroll_records[emp_id]["base_salary"] >= min_base:
         return True
